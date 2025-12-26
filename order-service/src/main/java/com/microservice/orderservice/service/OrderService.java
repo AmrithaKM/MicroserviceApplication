@@ -1,6 +1,7 @@
 package com.microservice.orderservice.service;
 
 
+import com.microservice.orderservice.dto.OrderEvent;
 import com.microservice.orderservice.dto.OrderLineItemsDto;
 import com.microservice.orderservice.dto.OrderRequest;
 import com.microservice.orderservice.dto.ProductResponse;
@@ -13,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -25,6 +27,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final RestTemplate restTemplate;
+    private final OrderEventProducer orderEventProducer;
 
     public void placeOrder(OrderRequest orderRequest) {
         // Handle both simple format (skuCode, quantity) and complex format (list of items)
@@ -44,7 +47,8 @@ public class OrderService {
      * 1. POST /api/order with { "skuCode": "LAPTOP-001", "quantity": 2 }
      * 2. OrderService calls: GET /api/inventory?skuCode=LAPTOP-001&quantity=2
      * 3. InventoryService returns: true (stock available)
-     * 4. OrderService calls: GET /api/products/LAPTOP-001 (optional)
+     * 7. OrderService publishes order.created event to Kafka
+     * 8. Response: "Order placed Successfully"
      * 5. ProductService returns: { "id": "123", "name": "Laptop", "price": 1299.99 }
      * 6. OrderService saves order to database
      * 7. Response: "Order placed Successfully"
@@ -93,8 +97,22 @@ public class OrderService {
         orderLineItems.add(orderLineItem);
         order.setOrderLineItemsList(orderLineItems);
 
-        orderRepository.save(order);
-        log.info("Step 6: Order saved to database - orderNumber: {}", order.getOrderNumber());
+        // Step 7: Publish order.created event to Kafka
+        OrderEvent orderEvent = OrderEvent.builder()
+                .orderId(order.getId())
+                .orderNumber(order.getOrderNumber())
+                .skuCode(skuCode)
+                .quantity(quantity)
+                .price(orderLineItem.getPrice() != null ? new BigDecimal(orderLineItem.getPrice().toString()) : null)
+                .status("CREATED")
+                .timestamp(System.currentTimeMillis())
+                .build();
+
+        orderEventProducer.publishOrderEvent(orderEvent);
+        log.info("Step 7: Order event published to Kafka - orderNumber: {}", order.getOrderNumber());
+
+        // Step 8: Order completed successfully
+        log.info("Step 8: Order placed successfully - Response: 'Order placed Successfully'");
 
         // Step 7: Order completed successfully
         log.info("Step 7: Order placed successfully - Response: 'Order placed Successfully'");
@@ -110,6 +128,24 @@ public class OrderService {
 
         order.setOrderLineItemsList(orderLineItems);
         orderRepository.save(order);
+        log.info("Complex order saved to database - orderNumber: {}", order.getOrderNumber());
+
+        // Publish order.created event to Kafka for each order item
+        for (OrderLineItems item : orderLineItems) {
+            OrderEvent orderEvent = OrderEvent.builder()
+                    .orderId(order.getId())
+                    .orderNumber(order.getOrderNumber())
+                    .skuCode(item.getSkuCode())
+                    .quantity(item.getQuantity())
+                    .price(item.getPrice() != null ? new BigDecimal(item.getPrice().toString()) : null)
+                    .status("CREATED")
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+
+            orderEventProducer.publishOrderEvent(orderEvent);
+            log.info("Order event published to Kafka for item: {}", item.getSkuCode());
+        }
+
         log.info("Complex order placed successfully - orderNumber: {}", order.getOrderNumber());
     }
 
