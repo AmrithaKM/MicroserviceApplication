@@ -10,5 +10,10 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class OrderRequest {
+    // Simple format for single item orders
+    private String skuCode;
+    private Integer quantity;
+
+    // Complex format for multiple items
     private List<OrderLineItemsDto> orderLineItemsDtoList;
 }
