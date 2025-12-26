@@ -1,0 +1,114 @@
+# IDE and Editor Files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.iml
+*.iws
+*.ipr
+.DS_Store
+Thumbs.db
+
+# Build and Compiled Files
+target/
+build/
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+
+# Maven
+.m2/
+pom.xml.tag
+pom.xml.releaseBackup
+release.properties
+dependency-reduced-pom.xml
+
+# Gradle
+.gradle/
+gradle-app.setting
+.gradletasknamecache
+
+# Spring Boot
+*.log
+application*.properties
+application*.yml
+!application.properties
+
+# Environment and Configuration
+.env
+.env.local
+.env.*.local
+config/
+*.properties
+!src/**/resources/application*.properties
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+mongodb/
+data/
+
+# Node modules (if using any frontend)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Temporary Files
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# IntelliJ specific files
+out/
+*.iml
+*.iws
+*.ipr
+*.ids
+*.orig
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# NetBeans
+nbproject/
+.nb-gradle/
+
+# Local development
+.vscode/settings.json
+launch.json
+.history/
+
+# Docker
+docker-compose.override.yml
+
+# Test Coverage
+coverage/
+*.lcov
+
+# Git Credentials
+.git-credentials
+
+# SSL Certificates
+*.pem
+*.key
+*.crt
+*.p12
+
