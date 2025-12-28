@@ -42,7 +42,6 @@ application*.yml
 .env
 .env.local
 .env.*.local
-config/
 *.properties
 !src/**/resources/application*.properties
 
