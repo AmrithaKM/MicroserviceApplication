@@ -4,6 +4,8 @@ package com.microservice.orderservice.service;
 import com.microservice.orderservice.dto.OrderEvent;
 import com.microservice.orderservice.dto.OrderLineItemsDto;
 import com.microservice.orderservice.dto.OrderRequest;
+import com.microservice.orderservice.dto.OrderResponse;
+import com.microservice.orderservice.dto.AllOrdersResponse;
 import com.microservice.orderservice.dto.ProductResponse;
 import com.microservice.orderservice.model.Order;
 import com.microservice.orderservice.model.OrderLineItems;
@@ -18,6 +20,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -97,6 +100,10 @@ public class OrderService {
         orderLineItems.add(orderLineItem);
         order.setOrderLineItemsList(orderLineItems);
 
+        // Step 6b: Save order to database
+        orderRepository.save(order);
+        log.info("Step 6b: Order saved to database - orderNumber: {}", order.getOrderNumber());
+
         // Step 7: Publish order.created event to Kafka
         OrderEvent orderEvent = OrderEvent.builder()
                 .orderId(order.getId())
@@ -157,4 +164,51 @@ public class OrderService {
         return orderLineItems;
     }
 
+    public AllOrdersResponse getAllOrders() {
+        log.info("Fetching all orders from database");
+        List<Order> orders = orderRepository.findAll();
+        log.info("Found {} orders", orders.size());
+
+        List<OrderResponse> orderResponses = orders.stream()
+            .map(this::mapOrderToResponse)
+            .collect(Collectors.toList());
+
+        return new AllOrdersResponse(orderResponses, orders.size());
+    }
+
+    public OrderResponse getOrderById(Long orderId) {
+        log.info("Fetching order with ID: {}", orderId);
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> {
+                log.warn("Order not found with ID: {}", orderId);
+                return new IllegalArgumentException("Order not found with ID: " + orderId);
+            });
+
+        log.info("Order found - orderNumber: {}", order.getOrderNumber());
+        return mapOrderToResponse(order);
+    }
+
+    private OrderResponse mapOrderToResponse(Order order) {
+        OrderResponse response = new OrderResponse();
+        response.setId(order.getId());
+        response.setOrderNumber(order.getOrderNumber());
+
+        if (order.getOrderLineItemsList() != null) {
+            List<OrderLineItemsDto> itemDtos = order.getOrderLineItemsList()
+                .stream()
+                .map(this::mapOrderLineItemsToDto)
+                .collect(Collectors.toList());
+            response.setOrderLineItems(itemDtos);
+        }
+
+        return response;
+    }
+
+    private OrderLineItemsDto mapOrderLineItemsToDto(OrderLineItems orderLineItems) {
+        OrderLineItemsDto dto = new OrderLineItemsDto();
+        dto.setSkuCode(orderLineItems.getSkuCode());
+        dto.setPrice(orderLineItems.getPrice());
+        dto.setQuantity(orderLineItems.getQuantity());
+        return dto;
+    }
 }
