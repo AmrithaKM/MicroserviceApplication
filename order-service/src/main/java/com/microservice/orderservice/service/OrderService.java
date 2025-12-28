@@ -62,7 +62,7 @@ public class OrderService {
         // Step 2: Check inventory
         log.info("Step 2: Calling InventoryService to check stock");
         Boolean isInStock = restTemplate.getForObject(
-            "http://localhost:8081/api/inventory?skuCode=" + skuCode + "&quantity=" + quantity,
+            "http://inventory-service:8081/api/inventory?skuCode=" + skuCode + "&quantity=" + quantity,
             Boolean.class
         );
 
@@ -76,7 +76,7 @@ public class OrderService {
         // Step 4: Get product details (optional)
         log.info("Step 4: Calling ProductService to get product details");
         ProductResponse product = restTemplate.getForObject(
-            "http://localhost:8082/api/product/" + skuCode,
+            "http://product-service:8082/api/product/" + skuCode,
             ProductResponse.class
         );
 

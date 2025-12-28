@@ -1,4 +1,39 @@
 services:
+
+
+  # -------------------- DATABASES --------------------
+
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    networks:
+      - microservices-network
+
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: orderdb
+      POSTGRES_INITDB_ARGS: "-c max_connections=200"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-network
+
+  # -------------------- MICROSERVICES --------------------
+
   # Order Service (depends on inventory, product, kafka)
   order-service:
     build: ./order-service
@@ -7,10 +42,18 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=default
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/order_service
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
     depends_on:
-      - kafka
-      - inventory-service
-      - product-service
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      product-service:
+        condition: service_started
     networks:
       - microservices-network
 
@@ -22,6 +65,14 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=default
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/inventory_service
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
     networks:
       - microservices-network
 
@@ -32,6 +83,11 @@ services:
       - "8082:8082"
     environment:
       - SPRING_PROFILES_ACTIVE=default
+      - MONGO_URI=mongodb://mongodb:27017/product-service
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - mongodb
+      - kafka
     networks:
       - microservices-network
 
@@ -94,3 +150,7 @@ services:
 networks:
   microservices-network:
     driver: bridge
+
+volumes:
+  postgres_data:
+
