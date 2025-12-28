@@ -1,5 +1,41 @@
-version: '3.8'
 services:
+  # Order Service (depends on inventory, product, kafka)
+  order-service:
+    build: ./order-service
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - kafka
+      - inventory-service
+      - product-service
+    networks:
+      - microservices-network
+
+  # Inventory Service
+  inventory-service:
+    build: ./inventory-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    networks:
+      - microservices-network
+
+  # Product Service
+  product-service:
+    build: ./product-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    networks:
+      - microservices-network
+
+  # Auth Service
   auth-service:
     build: ./auth-service
     ports:
@@ -8,18 +44,53 @@ services:
       - SPRING_PROFILES_ACTIVE=default
     depends_on:
       - kafka
-  # ...existing services...
+    networks:
+      - microservices-network
+
+  # Kafka Message Broker (Confluent)
   kafka:
-    image: wurstmeister/kafka:2.13-2.8.0
+    image: confluentinc/cp-kafka:7.5.0
     ports:
       - "9092:9092"
+      - "29092:29092"
     environment:
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
     depends_on:
       - zookeeper
+    networks:
+      - microservices-network
+
+  # Zookeeper (Confluent)
   zookeeper:
-    image: wurstmeister/zookeeper:3.4.6
+    image: confluentinc/cp-zookeeper:7.5.0
     ports:
       - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - microservices-network
 
+  # Kafka UI (Optional - for monitoring)
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8888:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    depends_on:
+      - kafka
+    networks:
+      - microservices-network
+
+networks:
+  microservices-network:
+    driver: bridge
